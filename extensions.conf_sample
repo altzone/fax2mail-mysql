@@ -1,0 +1,5 @@
+
+[fax-in]
+exten => _X.,1,AGI(fax_inbound.agi)
+exten => _X.,n,ReceiveFAX(/data/tmp/${IDFAX}.tif)
+exten => h,1,AGI(fax_batch.agi)
