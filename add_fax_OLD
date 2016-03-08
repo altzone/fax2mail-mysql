@@ -1,0 +1,220 @@
+#!/bin/bash
+export TERM=linux
+
+OUTPUT="/tmp/input.txt"
+
+>$OUTPUT
+trap "rm $OUTPUT; exit" SIGHUP SIGINT SIGTERM
+
+dialog --title "Ajout Client FAX" \
+--backtitle "Net1C FAX Tools" \
+--inputbox "Entrer le nom du fax " 8 60 2>$OUTPUT
+respose=$?
+name=$(<$OUTPUT)
+case $respose in
+  0)
+
+        ;;
+  1)
+        echo "Cancel pressed."
+        ;;
+  255)
+   echo "[ESC] key pressed."
+esac
+
+rm $OUTPUT
+
+
+>$OUTPUT
+trap "rm $OUTPUT; exit" SIGHUP SIGINT SIGTERM
+
+dialog --title "Ajout Client FAX" \
+--backtitle "Net1C FAX Tools" \
+--inputbox "Entrer le numero du fax (ex: 181800601) " 8 60 2>$OUTPUT
+respose=$?
+num=$(<$OUTPUT)
+case $respose in
+  0)
+
+        ;;
+  1)
+        echo "Cancel pressed."
+        ;;
+  255)
+   echo "[ESC] key pressed."
+esac
+
+rm $OUTPUT
+
+
+>$OUTPUT
+trap "rm $OUTPUT; exit" SIGHUP SIGINT SIGTERM
+
+dialog --title "Ajout Client FAX" \
+--backtitle "Net1C FAX Tools" \
+--inputbox "Entrer l'email de reception " 8 60 2>$OUTPUT
+respose=$?
+mail=$(<$OUTPUT)
+case $respose in
+  0)
+
+        ;;
+  1)
+        echo "Cancel pressed."
+        ;;
+  255)
+   echo "[ESC] key pressed."
+esac
+rm $OUTPUT
+
+>$OUTPUT
+trap "rm $OUTPUT; exit" SIGHUP SIGINT SIGTERM
+
+dialog --title "Ajout Client FAX" \
+--backtitle "Net1C FAX Tools" \
+--inputbox "Entrer le mot de passe pour la consultation " 8 60 2>$OUTPUT
+respose=$?
+pass=$(<$OUTPUT)
+case $respose in
+  0)
+
+        ;;
+  1)
+        echo "Cancel pressed."
+        ;;
+  255)
+   echo "[ESC] key pressed."
+esac
+
+
+
+
+rm $OUTPUT
+
+dialog --title "Nouveau FAX $name" --clear --msgbox "Nom : $name\n Numero : $num\n E-mail : $mail\n Mot de passe : $pass\n " 10 41
+
+
+clear
+echo -e "\e[42m\e[30mMerci de bien verifier les parametres qui vont etre appliqués:\e[0m"
+
+
+echo -e "\e[4m
+Parametres Systeme:\e[0m
+
+mkdir -p /data/fax/$name/$num
+rsync -avP /data/.template/ /data/fax/$name/$num/
+sed -i s/XXXSOCXXX/$name/g /data/fax/$name/$num/.send/index.html
+sed -i s/XXXNUMXXX/$num/g /data/fax/$name/$num/.send/index.html
+htpasswd -c -b /data/fax/$name/$num/.htpasswd $name $pass
+
+
+\e[4mParametre asterisk\e[0m
+
+;;;;;;;;;;;;;;; FAX $name ;;;;;;;;;;;;;;;;;;;;;;;;;;
+exten => _$num,1,Answer()
+exten => _$num,2,Wait(1)
+exten => _$num,3,Set(EMAIL=$mail)
+exten => _$num,4,Set(PATH=/data/fax/$name/$num/)
+exten => _$num,5,Set(NAME=$name)
+exten => _$num,6,Set(SOCIETE=$name)
+exten => _$num,7,Goto(fax-rx,receive,1)
+
+\e[4mParametre Authentification:\e[0m
+
+AuthType Basic
+AuthName \"Fax $name \"
+AuthUserFile /data/fax/$name/$num/.htpasswd
+Require valid-user
+
+ErrorDocument 400 /.error.php
+ErrorDocument 401 /.error.php
+ErrorDocument 403 /.error.php
+ErrorDocument 404 /.error.php
+ErrorDocument 405 /.error.php
+ErrorDocument 408 /.error.php
+ErrorDocument 414 /.error.php
+ErrorDocument 500 /.error.php
+ErrorDocument 502 /.error.php
+ErrorDocument 504 /.error.php
+
+DirectoryIndex index.htm index.html index.shtml index.php default.php .index.php"
+
+echo -en "
+\e[93m !!!!!  Appliquer ces paramètres ?   !!!!!!\e[0m
+(entrer pour continuer ou CTRL+C pour annuler)"
+read
+
+
+if [[ -d "/data/fax/$name" ]]; then
+        echo "le client $name existe ..... Ajout de la ligne 0$num"
+
+else
+        echo "Ajout du client $name"
+        echo -n "entrez le mot de passe admin: "
+        read admpass
+        mkdir -p /data/fax/$name/
+        htpasswd -c -b /data/fax/$name/.htpasswd admin $admpass
+        echo "<html><body><title>Net1C FAX system</title><H1>$name Fax admin</H1></br>" > /data/fax/$name/index.html
+        echo "AuthType Basic
+AuthName \"Fax $name \"
+AuthUserFile /data/fax/$name/.htpasswd
+Require valid-user
+
+ErrorDocument 400 ./.error.php
+ErrorDocument 401 ./.error.php
+ErrorDocument 403 ./.error.php
+ErrorDocument 404 ./.error.php
+ErrorDocument 405 ./.error.php
+ErrorDocument 408 ./.error.php
+ErrorDocument 414 ./.error.php
+ErrorDocument 500 ./.error.php
+ErrorDocument 502 ./.error.php
+ErrorDocument 504 ./.error.php" > /data/fax/$name/.htaccess
+        chown -Rf asterisk:asterisk /data/fax/$name
+fi
+
+
+mkdir -p /data/fax/$name/$num
+rsync -aP /data/.template/ /data/fax/$name/$num/ &> /dev/null
+sed -i s/XXXSOCXXX/$name/g /data/fax/$name/$num/.send/index.html
+sed -i s/XXXNUMXXX/$num/g /data/fax/$name/$num/.send/index.html
+htpasswd -c -b /data/fax/$name/$num/.htpasswd $name $pass
+
+
+
+
+
+
+echo "
+;;;;;;;;;;;;;;; FAX $name ;;;;;;;;;;;;;;;;;;;;;;;;;;
+exten => _$num,1,Answer()
+exten => _$num,2,Wait(1)
+exten => _$num,3,Set(EMAIL=$mail)
+exten => _$num,4,Set(PATH=/data/fax/$name/$num/fax/)
+exten => _$num,5,Set(NAME=$name)
+exten => _$num,6,Set(SOCIETE=$name)
+exten => _$num,7,Goto(fax-rx,receive,1)
+" >> /etc/asterisk/fax.conf
+echo "AuthType Basic
+AuthName \"Fax $name \"
+AuthUserFile /data/fax/$name/$num/.htpasswd
+Require valid-user
+
+ErrorDocument 400 /.error.php
+ErrorDocument 401 /.error.php
+ErrorDocument 403 /.error.php
+ErrorDocument 404 /.error.php
+ErrorDocument 405 /.error.php
+ErrorDocument 408 /.error.php
+ErrorDocument 414 /.error.php
+ErrorDocument 500 /.error.php
+ErrorDocument 502 /.error.php
+ErrorDocument 504 /.error.php
+" > /data/fax/$name/$num/.htaccess
+
+chown -Rf asterisk:asterisk /data/fax/$name/$num
+asterisk -rx "dialplan reload"
+
+        cat /data/fax/$name/.htpasswd >> /data/fax/$name/$num/.htpasswd
+        echo "</br><a href=\"./$num/\"> Votre ligne FAX 0$num</a></br>
+" >> /data/fax/$name/index.html
