@@ -1,0 +1,61 @@
+#!/usr/bin/php
+<?php
+set_time_limit(30);
+require ('phpagi.php');
+
+//Start AGI
+$agi = new AGI();
+
+//Connect MySQL
+$link = mysql_connect('127.0.0.1', 'user', 'pass');
+if (!$link) {
+    die('Connexion impossible : ' . mysql_error());
+}
+//Select DB
+mysql_select_db('fax',$link);
+
+// GET vars to be proccessed
+$num            = $agi->get_variable('EXTEN');
+$clid_num       = $agi->get_variable('CALLERID(num)');
+$unique_id      = $agi->get_variable('UNIQUEID');
+
+// Get information about fax config
+$sql1           = "SELECT * from users where num = \"$num[data]\" LIMIT 1";
+$req            = mysql_query($sql1) or die('Erreur SQL !<br>'.$sql.'<br>'.mysql_error());
+$row            = mysql_fetch_object($req);
+$config         = mysql_num_rows($req);
+
+// Check if fax extention have a config
+if ($config != 1) {
+        $agi->set_variable("FAXNOTCONFIG","1");
+        $agi->hangup();
+        break;
+}
+$agi->answer();
+
+$ecm            = "$row->ecm";
+$headerinfo     = "$row->headerinfo";
+$localstationid = "$row->localstationid";
+$maxrate        = "$row->maxrate";
+$minrate        = "$row->minrate";
+$tempdir        = "/data/tmp";
+$faxfile        = "fax-$clid_num[data]-$unique_id[data]";
+$path           = "/data/fax/$row->societe/$row->num";
+
+//Set fax configuration to receive for appropriate customer
+$agi->set_variable("EMAIL","$row->email");
+$agi->set_variable("PATH","/data/fax/$row->societe");
+$agi->set_variable("USERNAME","$row->username");
+$agi->set_variable("SOCIETE","$row->societe");
+$agi->set_variable("IDFAX","fax-$clid_num[data]-$unique_id[data]");
+$agi->set_variable("FILEFAX","$path/fax/$faxfile");
+$agi->set_variable("FAXNUM","$row->num");
+$agi->set_variable("FAXOPT(ecm)", "$ecm");
+$agi->set_variable("FAXOPT(headerinfo)", "$headerinfo");
+$agi->set_variable("FAXOPT(localstationid)","$localstationid");
+$agi->set_variable("FAXOPT(maxrate)","$maxrate");
+$agi->set_variable("FAXOPT(minrate)","$minrate");
+$agi->set_variable("FAXTEMP","$tempdir/$faxfile.tif");
+$agi->set_variable("UNIQ","$unique_id[data]");
+mysql_close($link);
+?>
